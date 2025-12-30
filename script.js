@@ -7,9 +7,6 @@ const videoTitle = document.getElementById('video-title');
 const videoDuration = document.getElementById('video-duration');
 const downloadBtn = document.getElementById('download-btn');
 
-// Cobalt API endpoint
-const COBALT_API = 'https://api.cobalt.tools/api/json';
-
 convertBtn.addEventListener('click', handleConvert);
 urlInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') handleConvert();
@@ -28,85 +25,28 @@ async function handleConvert() {
         return;
     }
 
-    setLoading(true);
-    showStatus('正在處理中...', '');
-    result.classList.add('hidden');
-
-    try {
-        // Get video info
-        const videoId = extractVideoId(url);
-        if (videoId) {
-            thumbnail.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-        }
-
-        // Call Cobalt API
-        const response = await fetch(COBALT_API, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                url: url,
-                vCodec: 'h264',
-                vQuality: '720',
-                aFormat: 'mp3',
-                isAudioOnly: true,
-                isNoTTWatermark: true,
-                isTTFullAudio: true
-            })
-        });
-
-        const data = await response.json();
-
-        if (data.status === 'error') {
-            throw new Error(data.text || '轉換失敗');
-        }
-
-        if (data.status === 'redirect' || data.status === 'stream') {
-            const downloadUrl = data.url;
-
-            videoTitle.textContent = '音訊已準備就緒';
-            videoDuration.textContent = '點擊下方按鈕下載';
-            downloadBtn.href = downloadUrl;
-            downloadBtn.target = '_blank';
-
-            result.classList.remove('hidden');
-            showStatus('轉換成功！', 'success');
-        } else if (data.status === 'picker') {
-            // Multiple options available
-            const audioOption = data.picker.find(p => p.type === 'audio') || data.picker[0];
-            if (audioOption) {
-                videoTitle.textContent = '音訊已準備就緒';
-                videoDuration.textContent = '點擊下方按鈕下載';
-                downloadBtn.href = audioOption.url;
-                downloadBtn.target = '_blank';
-
-                result.classList.remove('hidden');
-                showStatus('轉換成功！', 'success');
-            } else {
-                throw new Error('找不到音訊選項');
-            }
-        } else {
-            throw new Error('未知的回應格式');
-        }
-
-    } catch (error) {
-        console.error('Error:', error);
-
-        // Fallback: open external converter
-        showStatus('API 暫時無法使用，正在開啟備用服務...', 'error');
-        setTimeout(() => {
-            const videoId = extractVideoId(url);
-            if (videoId) {
-                window.open(`https://www.y2mate.com/youtube-mp3/${videoId}`, '_blank');
-            } else {
-                window.open(`https://www.y2mate.com/youtube-mp3`, '_blank');
-            }
-        }, 1500);
-    } finally {
-        setLoading(false);
+    const videoId = extractVideoId(url);
+    if (!videoId) {
+        showStatus('無法解析影片 ID', 'error');
+        return;
     }
+
+    setLoading(true);
+    showStatus('正在準備下載頁面...', '');
+
+    // Show video thumbnail
+    thumbnail.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+    videoTitle.textContent = '點擊下方按鈕下載 MP3';
+    videoDuration.textContent = '將開啟轉換服務頁面';
+
+    // Use yt1s.com as the converter service
+    const converterUrl = `https://www.yt1s.com/youtube-to-mp3?q=${encodeURIComponent(url)}`;
+    downloadBtn.href = converterUrl;
+    downloadBtn.target = '_blank';
+
+    result.classList.remove('hidden');
+    showStatus('準備完成！', 'success');
+    setLoading(false);
 }
 
 function isValidYouTubeUrl(url) {

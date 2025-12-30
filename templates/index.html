@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube 轉 MP3</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #url-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            font-size: 1rem;
+            outline: none;
+            transition: box-shadow 0.3s;
+        }
+
+        #url-input:focus {
+            box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.5);
+        }
+
+        #url-input::placeholder {
+            color: #999;
+        }
+
+        #convert-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #ff6b6b, #feca57);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        #convert-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        #convert-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 10px;
+            color: rgba(255, 255, 255, 0.8);
+            min-height: 40px;
+        }
+
+        .status.error {
+            color: #ff6b6b;
+        }
+
+        .status.success {
+            color: #4ecdc4;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            display: none;
+        }
+
+        .result.show {
+            display: block;
+        }
+
+        .video-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        #thumbnail {
+            width: 120px;
+            height: 68px;
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        .info h3 {
+            font-size: 0.95rem;
+            margin-bottom: 5px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .info p {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .download-btn {
+            display: inline-block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(90deg, #4ecdc4, #44a08d);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 10px;
+            font-weight: bold;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(78, 205, 196, 0.4);
+        }
+
+        footer {
+            margin-top: 30px;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.85rem;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 25px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            #convert-btn {
+                width: 100%;
+            }
+
+            .video-info {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            #thumbnail {
+                width: 100%;
+                height: auto;
+                max-width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YouTube 轉 MP3</h1>
+        <p class="subtitle">貼上 YouTube 連結，立即下載 MP3</p>
+
+        <div class="input-group">
+            <input
+                type="text"
+                id="url-input"
+                placeholder="貼上 YouTube 連結..."
+                autocomplete="off"
+            >
+            <button id="convert-btn">轉換</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div id="result" class="result">
+            <div class="video-info">
+                <img id="thumbnail" src="" alt="影片縮圖">
+                <div class="info">
+                    <h3 id="video-title"></h3>
+                    <p id="video-duration"></p>
+                </div>
+            </div>
+            <a id="download-btn" class="download-btn" href="#" download>下載 MP3</a>
+        </div>
+    </div>
+
+    <footer>
+        <p>僅供個人使用，請尊重版權</p>
+    </footer>
+
+    <script>
+        const urlInput = document.getElementById('url-input');
+        const convertBtn = document.getElementById('convert-btn');
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const thumbnail = document.getElementById('thumbnail');
+        const videoTitle = document.getElementById('video-title');
+        const videoDuration = document.getElementById('video-duration');
+        const downloadBtn = document.getElementById('download-btn');
+
+        convertBtn.addEventListener('click', handleConvert);
+        urlInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') handleConvert();
+        });
+
+        async function handleConvert() {
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                showStatus('請輸入 YouTube 連結', 'error');
+                return;
+            }
+
+            setLoading(true);
+            showStatus('<span class="spinner"></span>正在取得影片資訊...', '');
+            result.classList.remove('show');
+
+            try {
+                // Get video info first
+                const infoRes = await fetch('/api/info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const infoData = await infoRes.json();
+
+                if (!infoRes.ok) {
+                    throw new Error(infoData.error || '取得影片資訊失敗');
+                }
+
+                // Show video info
+                thumbnail.src = infoData.thumbnail;
+                videoTitle.textContent = infoData.title;
+                videoDuration.textContent = formatDuration(infoData.duration);
+                result.classList.add('show');
+
+                // Start conversion
+                showStatus('<span class="spinner"></span>正在轉換中，請稍候...', '');
+
+                const convertRes = await fetch('/api/convert', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                const convertData = await convertRes.json();
+
+                if (!convertRes.ok) {
+                    throw new Error(convertData.error || '轉換失敗');
+                }
+
+                // Show download button
+                downloadBtn.href = convertData.download_url;
+                downloadBtn.download = convertData.title + '.mp3';
+                showStatus('轉換成功！點擊下方按鈕下載', 'success');
+
+            } catch (error) {
+                showStatus(error.message, 'error');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return '';
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function showStatus(message, type) {
+            status.innerHTML = message;
+            status.className = 'status';
+            if (type) status.classList.add(type);
+        }
+
+        function setLoading(loading) {
+            convertBtn.disabled = loading;
+            convertBtn.textContent = loading ? '處理中...' : '轉換';
+        }
+    </script>
+</body>
+</html>

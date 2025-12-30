@@ -141,10 +141,6 @@
         .info h3 {
             font-size: 0.95rem;
             margin-bottom: 5px;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
         }
 
         .info p {
@@ -152,24 +148,53 @@
             color: rgba(255, 255, 255, 0.6);
         }
 
-        .download-btn {
-            display: inline-block;
+        .converter-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .converter-btn {
+            display: block;
             width: 100%;
             padding: 15px;
-            background: linear-gradient(90deg, #4ecdc4, #44a08d);
             color: #fff;
             text-decoration: none;
             border-radius: 10px;
             font-weight: bold;
             transition: transform 0.2s, box-shadow 0.2s;
-            border: none;
             font-size: 1rem;
-            cursor: pointer;
+            text-align: center;
         }
 
-        .download-btn:hover {
+        .converter-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 5px 20px rgba(78, 205, 196, 0.4);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .converter-btn.cobalt {
+            background: linear-gradient(90deg, #ff6b6b, #ee5a24);
+        }
+
+        .converter-btn.y2mate {
+            background: linear-gradient(90deg, #4ecdc4, #44a08d);
+        }
+
+        .converter-btn.nineconvert {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+
+        .copy-btn {
+            background: linear-gradient(90deg, #f093fb, #f5576c);
+            border: none;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .tip {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 15px;
         }
 
         footer {
@@ -223,7 +248,7 @@
 <body>
     <div class="container">
         <h1>YouTube 轉 MP3</h1>
-        <p class="subtitle">貼上 YouTube 連結，立即下載 MP3</p>
+        <p class="subtitle">貼上 YouTube 連結，選擇轉換服務</p>
 
         <div class="input-group">
             <input
@@ -241,11 +266,17 @@
             <div class="video-info">
                 <img id="thumbnail" src="" alt="影片縮圖">
                 <div class="info">
-                    <h3 id="video-title"></h3>
-                    <p id="video-duration"></p>
+                    <h3>選擇轉換服務</h3>
+                    <p>如果一個不行，試試其他的</p>
                 </div>
             </div>
-            <a id="download-btn" class="download-btn" href="#" download>下載 MP3</a>
+            <div class="converter-buttons">
+                <button id="copy-btn" class="converter-btn copy-btn">複製連結 (用於 Cobalt)</button>
+                <a id="cobalt-btn" class="converter-btn cobalt" href="#" target="_blank">打開 Cobalt.tools</a>
+                <a id="y2mate-btn" class="converter-btn y2mate" href="#" target="_blank">Y2Mate</a>
+                <a id="nineconvert-btn" class="converter-btn nineconvert" href="#" target="_blank">9Convert</a>
+            </div>
+            <p class="tip">Cobalt 最推薦！複製連結後貼到 Cobalt 即可下載</p>
         </div>
     </div>
 
@@ -259,13 +290,38 @@
         const status = document.getElementById('status');
         const result = document.getElementById('result');
         const thumbnail = document.getElementById('thumbnail');
-        const videoTitle = document.getElementById('video-title');
-        const videoDuration = document.getElementById('video-duration');
-        const downloadBtn = document.getElementById('download-btn');
+        const copyBtn = document.getElementById('copy-btn');
+        const cobaltBtn = document.getElementById('cobalt-btn');
+        const y2mateBtn = document.getElementById('y2mate-btn');
+        const nineconvertBtn = document.getElementById('nineconvert-btn');
+
+        let currentUrl = '';
 
         convertBtn.addEventListener('click', handleConvert);
         urlInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') handleConvert();
+        });
+
+        copyBtn.addEventListener('click', async () => {
+            try {
+                await navigator.clipboard.writeText(currentUrl);
+                copyBtn.textContent = '已複製！';
+                setTimeout(() => {
+                    copyBtn.textContent = '複製連結 (用於 Cobalt)';
+                }, 2000);
+            } catch (err) {
+                // Fallback
+                const textarea = document.createElement('textarea');
+                textarea.value = currentUrl;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                copyBtn.textContent = '已複製！';
+                setTimeout(() => {
+                    copyBtn.textContent = '複製連結 (用於 Cobalt)';
+                }, 2000);
+            }
         });
 
         async function handleConvert() {
@@ -276,62 +332,38 @@
                 return;
             }
 
+            currentUrl = url;
             setLoading(true);
-            showStatus('<span class="spinner"></span>正在取得影片資訊...', '');
+            showStatus('<span class="spinner"></span>處理中...', '');
             result.classList.remove('show');
 
             try {
-                // Get video info first
-                const infoRes = await fetch('/api/info', {
+                const res = await fetch('/api/convert', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })
                 });
 
-                const infoData = await infoRes.json();
+                const data = await res.json();
 
-                if (!infoRes.ok) {
-                    throw new Error(infoData.error || '取得影片資訊失敗');
+                if (!res.ok) {
+                    throw new Error(data.error || '處理失敗');
                 }
 
-                // Show video info
-                thumbnail.src = infoData.thumbnail;
-                videoTitle.textContent = infoData.title;
-                videoDuration.textContent = '';
+                // Show results
+                thumbnail.src = data.thumbnail;
+                cobaltBtn.href = 'https://cobalt.tools/';
+                y2mateBtn.href = data.converters[1].url;
+                nineconvertBtn.href = data.converters[2].url;
+
                 result.classList.add('show');
-
-                // Start conversion
-                showStatus('<span class="spinner"></span>正在轉換中，請稍候...', '');
-
-                const convertRes = await fetch('/api/convert', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                });
-
-                const convertData = await convertRes.json();
-
-                if (!convertRes.ok) {
-                    throw new Error(convertData.error || '轉換失敗');
-                }
-
-                // Show download button
-                downloadBtn.href = convertData.download_url;
-                downloadBtn.target = '_blank';
-                showStatus('轉換成功！點擊下方按鈕下載', 'success');
+                showStatus('準備完成！選擇下方服務下載', 'success');
 
             } catch (error) {
                 showStatus(error.message, 'error');
             } finally {
                 setLoading(false);
             }
-        }
-
-        function formatDuration(seconds) {
-            if (!seconds) return '';
-            const mins = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            return `${mins}:${secs.toString().padStart(2, '0')}`;
         }
 
         function showStatus(message, type) {

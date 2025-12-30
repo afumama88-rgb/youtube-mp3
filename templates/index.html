@@ -297,7 +297,7 @@
                 // Show video info
                 thumbnail.src = infoData.thumbnail;
                 videoTitle.textContent = infoData.title;
-                videoDuration.textContent = formatDuration(infoData.duration);
+                videoDuration.textContent = '';
                 result.classList.add('show');
 
                 // Start conversion
@@ -317,7 +317,7 @@
 
                 // Show download button
                 downloadBtn.href = convertData.download_url;
-                downloadBtn.download = convertData.title + '.mp3';
+                downloadBtn.target = '_blank';
                 showStatus('轉換成功！點擊下方按鈕下載', 'success');
 
             } catch (error) {

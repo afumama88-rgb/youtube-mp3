@@ -1,40 +1,30 @@
-from flask import Flask, request, jsonify, send_file, render_template
-import yt_dlp
+from flask import Flask, request, jsonify, send_file, render_template, redirect
+import requests
+import re
 import os
-import uuid
-import threading
-import time
 
 app = Flask(__name__)
 
-# Directory for temporary files
-DOWNLOAD_DIR = '/tmp/youtube-mp3'
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
-# Store download progress
-downloads = {}
-
-def cleanup_old_files():
-    """Clean up files older than 10 minutes"""
-    while True:
-        time.sleep(300)  # Check every 5 minutes
-        now = time.time()
-        for filename in os.listdir(DOWNLOAD_DIR):
-            filepath = os.path.join(DOWNLOAD_DIR, filename)
-            if os.path.isfile(filepath):
-                if now - os.path.getmtime(filepath) > 600:  # 10 minutes
-                    try:
-                        os.remove(filepath)
-                    except:
-                        pass
-
-# Start cleanup thread
-cleanup_thread = threading.Thread(target=cleanup_old_files, daemon=True)
-cleanup_thread.start()
+# Cobalt API endpoint
+COBALT_API = 'https://api.cobalt.tools'
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+def extract_video_id(url):
+    """Extract YouTube video ID from URL"""
+    patterns = [
+        r'youtube\.com\/watch\?v=([\w-]+)',
+        r'youtube\.com\/shorts\/([\w-]+)',
+        r'youtu\.be\/([\w-]+)',
+        r'youtube\.com\/embed\/([\w-]+)'
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    return None
 
 @app.route('/api/info', methods=['POST'])
 def get_info():
@@ -45,28 +35,21 @@ def get_info():
     if not url:
         return jsonify({'error': '請輸入 YouTube 連結'}), 400
 
-    try:
-        ydl_opts = {
-            'quiet': True,
-            'no_warnings': True,
-        }
+    video_id = extract_video_id(url)
+    if not video_id:
+        return jsonify({'error': '無效的 YouTube 連結'}), 400
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-
-            return jsonify({
-                'success': True,
-                'title': info.get('title', 'Unknown'),
-                'duration': info.get('duration', 0),
-                'thumbnail': info.get('thumbnail', ''),
-                'video_id': info.get('id', '')
-            })
-    except Exception as e:
-        return jsonify({'error': f'無法取得影片資訊: {str(e)}'}), 400
+    # Return basic info with thumbnail
+    return jsonify({
+        'success': True,
+        'title': '準備下載中...',
+        'thumbnail': f'https://img.youtube.com/vi/{video_id}/mqdefault.jpg',
+        'video_id': video_id
+    })
 
 @app.route('/api/convert', methods=['POST'])
 def convert():
-    """Convert YouTube video to MP3"""
+    """Convert YouTube video to MP3 using Cobalt API"""
     data = request.get_json()
     url = data.get('url', '')
 
@@ -74,56 +57,60 @@ def convert():
         return jsonify({'error': '請輸入 YouTube 連結'}), 400
 
     try:
-        # Generate unique filename
-        file_id = str(uuid.uuid4())
-        output_path = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp3')
+        # Call Cobalt API
+        response = requests.post(
+            f'{COBALT_API}/api/json',
+            json={
+                'url': url,
+                'vCodec': 'h264',
+                'vQuality': '720',
+                'aFormat': 'mp3',
+                'isAudioOnly': True,
+                'disableMetadata': False
+            },
+            headers={
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            timeout=30
+        )
 
-        ydl_opts = {
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-            'outtmpl': os.path.join(DOWNLOAD_DIR, f'{file_id}.%(ext)s'),
-            'quiet': True,
-            'no_warnings': True,
-        }
+        result = response.json()
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            title = info.get('title', 'audio')
+        if result.get('status') == 'error':
+            return jsonify({'error': result.get('text', '轉換失敗')}), 400
 
-        # Check if file exists
-        if os.path.exists(output_path):
+        if result.get('status') in ['redirect', 'stream']:
             return jsonify({
                 'success': True,
-                'file_id': file_id,
-                'title': title,
-                'download_url': f'/api/download/{file_id}'
+                'download_url': result.get('url'),
+                'title': 'audio'
             })
-        else:
-            return jsonify({'error': '轉換失敗，請稍後再試'}), 500
 
+        if result.get('status') == 'picker':
+            # Multiple options, get the first audio one
+            picker = result.get('picker', [])
+            for item in picker:
+                if item.get('type') == 'audio':
+                    return jsonify({
+                        'success': True,
+                        'download_url': item.get('url'),
+                        'title': 'audio'
+                    })
+            # Fallback to first item
+            if picker:
+                return jsonify({
+                    'success': True,
+                    'download_url': picker[0].get('url'),
+                    'title': 'audio'
+                })
+
+        return jsonify({'error': '無法取得下載連結'}), 400
+
+    except requests.exceptions.Timeout:
+        return jsonify({'error': '請求超時，請稍後再試'}), 500
     except Exception as e:
         return jsonify({'error': f'轉換失敗: {str(e)}'}), 500
-
-@app.route('/api/download/<file_id>')
-def download(file_id):
-    """Download the converted MP3 file"""
-    # Sanitize file_id to prevent path traversal
-    file_id = file_id.replace('/', '').replace('\\', '').replace('..', '')
-    filepath = os.path.join(DOWNLOAD_DIR, f'{file_id}.mp3')
-
-    if os.path.exists(filepath):
-        return send_file(
-            filepath,
-            as_attachment=True,
-            download_name='audio.mp3',
-            mimetype='audio/mpeg'
-        )
-    else:
-        return jsonify({'error': '檔案不存在或已過期'}), 404
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

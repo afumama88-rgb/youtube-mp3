@@ -148,21 +148,43 @@ h1 {
     color: rgba(255, 255, 255, 0.6);
 }
 
+.choose-service {
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 15px;
+    font-size: 0.9rem;
+}
+
+.download-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .download-btn {
-    display: inline-block;
-    width: 100%;
-    padding: 15px;
+    flex: 1;
+    min-width: 100px;
+    padding: 12px 15px;
     background: linear-gradient(90deg, #4ecdc4, #44a08d);
     color: #fff;
     text-decoration: none;
     border-radius: 10px;
     font-weight: bold;
+    font-size: 0.9rem;
+    text-align: center;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .download-btn:hover {
     transform: translateY(-2px);
     box-shadow: 0 5px 20px rgba(78, 205, 196, 0.4);
+}
+
+#btn-ssyoutube {
+    background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+#btn-loader {
+    background: linear-gradient(90deg, #f093fb, #f5576c);
 }
 
 footer {

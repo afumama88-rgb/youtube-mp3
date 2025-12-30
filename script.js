@@ -5,7 +5,11 @@ const result = document.getElementById('result');
 const thumbnail = document.getElementById('thumbnail');
 const videoTitle = document.getElementById('video-title');
 const videoDuration = document.getElementById('video-duration');
-const downloadBtn = document.getElementById('download-btn');
+
+// Download buttons
+const btnY2mate = document.getElementById('btn-y2mate');
+const btnSsyoutube = document.getElementById('btn-ssyoutube');
+const btnLoader = document.getElementById('btn-loader');
 
 convertBtn.addEventListener('click', handleConvert);
 urlInput.addEventListener('keypress', (e) => {
@@ -32,20 +36,20 @@ async function handleConvert() {
     }
 
     setLoading(true);
-    showStatus('正在準備下載頁面...', '');
+    showStatus('正在準備...', '');
 
     // Show video thumbnail
     thumbnail.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-    videoTitle.textContent = '點擊下方按鈕下載 MP3';
-    videoDuration.textContent = '將開啟轉換服務頁面';
+    videoTitle.textContent = '選擇下方任一服務下載';
+    videoDuration.textContent = '如果一個不行，試試其他的';
 
-    // Use yt1s.com as the converter service
-    const converterUrl = `https://www.yt1s.com/youtube-to-mp3?q=${encodeURIComponent(url)}`;
-    downloadBtn.href = converterUrl;
-    downloadBtn.target = '_blank';
+    // Set up converter URLs
+    btnY2mate.href = `https://www.y2mate.com/youtube-mp3/${videoId}`;
+    btnSsyoutube.href = `https://ssyoutube.com/watch?v=${videoId}`;
+    btnLoader.href = `https://loader.to/api/button/?url=${encodeURIComponent(url)}&f=mp3`;
 
     result.classList.remove('hidden');
-    showStatus('準備完成！', 'success');
+    showStatus('準備完成！點擊任一按鈕下載', 'success');
     setLoading(false);
 }
 
